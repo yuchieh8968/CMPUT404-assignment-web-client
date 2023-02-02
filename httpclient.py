@@ -23,7 +23,7 @@ import socket
 import re
 # you may use urllib to encode data appropriately
 import urllib.parse
-
+BYTES_TO_READ = 4096
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
 
@@ -43,7 +43,7 @@ class HTTPClient(object):
     def get_code(self, data):
         return None
 
-    def get_headers(self,data):
+    def get_headers(self, data):
         return None
 
     def get_body(self, data):
@@ -68,9 +68,38 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
-        code = 500
-        body = ""
-        return HTTPResponse(code, body)
+        code = 200
+
+        # protocol, host, port, fullpath
+        # http, 127.0.0.1, 27656, /abcdef/gjkd/dsadas
+        parsed = self.parse(url)
+        print(parsed)
+        request = "GET {} HTTP/1.1\r\nHOST: {}\r\n\r\n".format(parsed[3], parsed[1])
+        print(request)
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((parsed[1], int(parsed[2])))
+            s.send(request.encode())
+            s.shutdown(socket.SHUT_WR)
+
+            chunk = s.recv(BYTES_TO_READ)
+            result = b'' + chunk
+
+            while len(chunk) > 0:
+                chunk = s.recv(BYTES_TO_READ)
+                result += chunk
+
+            print("_________________________",result)
+
+        header= result.split(b'\r\n', 1)[0]
+        code = header.split(b' ')[1]
+        print(header, code)
+        code = int(code)
+
+
+        #status_code = header.split(b"\r\n")[0].decode().split(" ")[1]
+        return HTTPResponse(code, request)
+
 
     def POST(self, url, args=None):
         code = 500
@@ -82,6 +111,20 @@ class HTTPClient(object):
             return self.POST( url, args )
         else:
             return self.GET( url, args )
+
+    def parse(self, url):
+        parsed_elements = []
+        protocol, path1 = url.split("://", 1)
+        host, path2 = path1.split(":", 1)
+        port, fullPath = path2.split("/", 1)
+        fullPath = "/"+fullPath
+
+        parsed_elements.append(protocol)
+        parsed_elements.append(host)
+        parsed_elements.append(port)
+        parsed_elements.append(fullPath)
+
+        return parsed_elements
     
 if __name__ == "__main__":
     client = HTTPClient()
