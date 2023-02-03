@@ -68,8 +68,31 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
-        code = 200
+        # protocol, host, port, fullpath
+        # http, 127.0.0.1, 27656, /abcdef/gjkd/dsadas
+        parsed = self.parse(url)
+        request = "GET {} HTTP/1.1\r\nHOST: {}\r\n\r\n".format(parsed[3], parsed[1])
 
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((parsed[1], int(parsed[2])))
+            s.send(request.encode())
+            s.shutdown(socket.SHUT_WR)
+
+            chunk = s.recv(BYTES_TO_READ)
+            result = b'' + chunk
+
+            while len(chunk) > 0:
+                chunk = s.recv(BYTES_TO_READ)
+                result += chunk
+
+        header= result.split(b'\r\n', 1)[0]
+        code = header.split(b' ')[1]
+        code = int(code)
+
+        return HTTPResponse(code, request)
+
+
+    def POST(self, url, args=None):
         # protocol, host, port, fullpath
         # http, 127.0.0.1, 27656, /abcdef/gjkd/dsadas
         parsed = self.parse(url)
@@ -89,22 +112,15 @@ class HTTPClient(object):
                 chunk = s.recv(BYTES_TO_READ)
                 result += chunk
 
-            print("_________________________",result)
+            print("_________________________", result)
 
-        header= result.split(b'\r\n', 1)[0]
+        header = result.split(b'\r\n', 1)[0]
         code = header.split(b' ')[1]
         print(header, code)
         code = int(code)
 
-
-        #status_code = header.split(b"\r\n")[0].decode().split(" ")[1]
+        # status_code = header.split(b"\r\n")[0].decode().split(" ")[1]
         return HTTPResponse(code, request)
-
-
-    def POST(self, url, args=None):
-        code = 500
-        body = ""
-        return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
         if (command == "POST"):
