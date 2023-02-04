@@ -70,11 +70,15 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
-        # protocol, host, port, fullpath
-        # http, 127.0.0.1, 27656, /abcdef/gjkd/dsadas
+        # call parse function to handle input url and separate info into a list
+        # parsed = protocol, host, port, full path
         parsed = self.parse(url)
+
+        # build request with parsed input
+        # https://docs.python.org/3/library/string.html
         request = "GET {} HTTP/1.1\r\nHOST: {}\r\n\r\n".format(parsed[3], parsed[1])
 
+        # code excerpt from lab2 proxy_client
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((parsed[1], int(parsed[2])))
             s.send(request.encode())
@@ -86,50 +90,62 @@ class HTTPClient(object):
             while len(chunk) > 0:
                 chunk = s.recv(BYTES_TO_READ)
                 result += chunk
+
+        # separate header and body content by the first b'\r\n\r\n'
         header, body = result.split(b'\r\n\r\n', 1)
+
+        # convert to string and return
         body = str(body)
-        code = header.split(b' ')[1]
-        code = int(code)
+
+        # retrieve code from header and return
+        code = int(header.split(b' ')[1])
 
         return HTTPResponse(code, body)
 
-
     def POST(self, url, args=None):
+        # call parse function to handle input url and separate info into a list
+        # parsed = protocol, host, port, full path
+
         parsed = self.parse(url)
         # if no arguments are passed through, don't add arguments to the request
-
         try:
             # https://docs.python.org/3/library/urllib.parse.html
             argument = urllib.parse.urlencode(args).encode('utf-8')
             # https://uofa-cmput404.github.io/cmput404-slides/04-HTTP.html#/32
+            # create request function with Accept Encoding, Content Type and Content Length in header, if arguments is passed append to the end
             request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{}".format(
-                parsed[3], parsed[1],parsed[2], len(argument)+2, argument).encode("utf-8")
+                parsed[3], parsed[1], parsed[2], len(argument) + 2, argument).encode("utf-8")
         except TypeError:
+            # create request function with Accept Encoding, Content Type and Content Length in header, without arguments
             request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n".format(
-                parsed[3], parsed[1],parsed[2], 0).encode("utf-8")
+                parsed[3], parsed[1], parsed[2], 0).encode("utf-8")
 
+        # code excerpt from lab2 proxy_client
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((parsed[1], int(parsed[2])))
             s.send(request)
             s.shutdown(socket.SHUT_WR)
-
             chunk = s.recv(BYTES_TO_READ)
-
             result = b'' + chunk
-
             while len(chunk) > 0:
                 chunk = s.recv(BYTES_TO_READ)
                 result += chunk
-
             s.close()
+
+        # separate header from content
         header, content = result.split(b'\r\n', 1)
+
+        # separate body from result
         body = content.split(b"\r\n\r\n", 1)[1]
 
+        # replace the extra character from encoding and decoding
         temp = body.decode()
         body = temp.replace("b'", "")
 
+        # extract response code from header
         code = header.split(b' ')[1]
         code = int(code)
+
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
@@ -138,8 +154,11 @@ class HTTPClient(object):
         else:
             return self.GET(url, args)
 
+    # https://docs.python.org/3/library/urllib.parse.html
     def parse(self, url):
         parsed_elements = []
+
+        # extract information from input url. If host and port is provided append it to list, if not, only protocol and fullPath is appended
         try:
             protocol, path1 = url.split("://", 1)
             host, path2 = path1.split(":", 1)
