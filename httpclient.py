@@ -84,6 +84,7 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
+        # https: // www.w3.org / International / articles / http - charset / index
         # call parse function to handle input url and separate info into a list
         # parsed = protocol, host, port, full path
         parsed = self.parse(url)
