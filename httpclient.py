@@ -86,9 +86,8 @@ class HTTPClient(object):
 
     def GET(self, url, args=None):
         # https://www.w3.org/International/articles/http-charset/index
-        # call parse function to handle input url and separate info into a list
-        # parsed = protocol, host, port, full path
-        parsed = self.parsed2(url)
+        # https://docs.python.org/3/library/urllib.parse.html
+        parsed = urllib.parse.urlparse(url)
 
         # build request with parsed input
         # https://docs.python.org/3/library/string.html
@@ -102,7 +101,7 @@ class HTTPClient(object):
 
             s.connect((parsed.hostname, port))
             s.sendall(request.encode())
-            time.sleep(5)
+            time.sleep(3)
 
             s.shutdown(socket.SHUT_WR)
             chunk = s.recv(BYTES_TO_READ)
@@ -146,10 +145,8 @@ class HTTPClient(object):
 
 
     def POST(self, url, args=None):
-        # call parse function to handle input url and separate info into a list
-        # parsed = protocol, host, port, full path
-
-        parsed = self.parse(url)
+        # https://docs.python.org/3/library/urllib.parse.html
+        parsed = urllib.parse.urlparse(url)
         # if no arguments are passed through, don't add arguments to the request
         try:
             # https://docs.python.org/3/library/urllib.parse.html
@@ -157,15 +154,15 @@ class HTTPClient(object):
             # https://uofa-cmput404.github.io/cmput404-slides/04-HTTP.html#/32
             # create request function with Accept Encoding, Content Type and Content Length in header, if arguments is passed append to the end
             request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{}".format(
-                parsed[3], parsed[1], parsed[2], len(argument) + 2, argument).encode("utf-8")
+                url, parsed.hostname, parsed.port, len(argument) + 2, argument).encode("utf-8")
         except TypeError:
             # create request function with Accept Encoding, Content Type and Content Length in header, without arguments
             request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n".format(
-                parsed[3], parsed[1], parsed[2], 0).encode("utf-8")
+                url, parsed.hostname, parsed.port, 0).encode("utf-8")
 
         # code excerpt from lab2 proxy_client
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((parsed[1], int(parsed[2])))
+            s.connect((parsed.hostname, parsed.port))
             s.send(request)
             s.shutdown(socket.SHUT_WR)
             chunk = s.recv(BYTES_TO_READ)
@@ -197,7 +194,6 @@ class HTTPClient(object):
         else:
             return self.GET(url, args)
 
-    # https://docs.python.org/3/library/urllib.parse.html
     def parsed2(self, url):
         url_parsed = urllib.parse.urlparse(url)
         return(url_parsed)

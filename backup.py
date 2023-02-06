@@ -18,11 +18,23 @@
 # Write your own HTTP GET and POST
 # The point is to understand what you have to send and get experience with it
 
+# Copyright 2023 Jeff Wang
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import sys
 import socket
-import re
-# you may use urllib to encode data appropriately
 import urllib.parse
+import time
 
 BYTES_TO_READ = 4096
 
@@ -73,73 +85,111 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
-        # protocol, host, port, fullpath
-        # http, 127.0.0.1, 27656, /abcdef/gjkd/dsadas
-        parsed = self.parse(url)
-        request = "GET {} HTTP/1.1\r\nHOST: {}\r\n\r\n".format(parsed[3], parsed[1])
+        # https://www.w3.org/International/articles/http-charset/index
+        # call parse function to handle input url and separate info into a list
+        # parsed = protocol, host, port, full path
+        parsed = self.parsed2(url)
 
+        # build request with parsed input
+        # https://docs.python.org/3/library/string.html
+        request = "GET {} HTTP/1.1\r\nHOST: {}\r\n\r\n".format(url, parsed.hostname)
+        # code excerpt from lab2 proxy_client
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((parsed[1], int(parsed[2])))
-            s.send(request.encode())
-            s.shutdown(socket.SHUT_WR)
+            if parsed.port == None:
+                port = 80
+            else:
+                port = parsed.port
 
+            s.connect((parsed.hostname, port))
+            s.sendall(request.encode())
+            time.sleep(5)
+
+            s.shutdown(socket.SHUT_WR)
             chunk = s.recv(BYTES_TO_READ)
+
             result = b'' + chunk
 
             while len(chunk) > 0:
                 chunk = s.recv(BYTES_TO_READ)
                 result += chunk
+            s.close()
 
-        header = result.split(b'\r\n', 1)[0]
-        code = header.split(b' ')[1]
-        code = int(code)
+        # separate header and body content by the first b'\r\n\r\n'
+        header, body = result.split(b'\r\n\r\n', 1)
+        # convert to string and return
+        body = str(body)
 
-        print("Request=")
-        print(request)
-        print("\n\n\n")
-        print("\n\n\nResult=")
-        print(result)
 
-        return HTTPResponse(code, request)
+        # retrieve code from header and return
+        code = int(header.split(b' ')[1])
+
+        return HTTPResponse(code, body)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def POST(self, url, args=None):
+        # call parse function to handle input url and separate info into a list
+        # parsed = protocol, host, port, full path
+
         parsed = self.parse(url)
-        lengthArgs = 0
+        # if no arguments are passed through, don't add arguments to the request
+        try:
+            # https://docs.python.org/3/library/urllib.parse.html
+            argument = urllib.parse.urlencode(args).encode('utf-8')
+            # https://uofa-cmput404.github.io/cmput404-slides/04-HTTP.html#/32
+            # create request function with Accept Encoding, Content Type and Content Length in header, if arguments is passed append to the end
+            request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{}".format(
+                parsed[3], parsed[1], parsed[2], len(argument) + 2, argument).encode("utf-8")
+        except TypeError:
+            # create request function with Accept Encoding, Content Type and Content Length in header, without arguments
+            request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n".format(
+                parsed[3], parsed[1], parsed[2], 0).encode("utf-8")
 
-        # args = {'a': 'aaaaaaaaaaaaa',
-        #         'b': 'bbbbbbbbbbbbbbbbbbbbbb',
-        #         'c': 'c',
-        #         'd': '012345\r67890\n2321321\n\r'}
-
-        for i in args:
-            lengthArgs += len(args[i])
-
-        # https://uofa-cmput404.github.io/cmput404-slides/04-HTTP.html#/32
-        request = "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{}".format(
-            parsed[3], parsed[1], lengthArgs, args)
-
-        print("\n\n\nrequest===" + request + "\n\n\n")
-
+        # code excerpt from lab2 proxy_client
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((parsed[1], int(parsed[2])))
-            s.send(request.encode())
+            s.send(request)
             s.shutdown(socket.SHUT_WR)
-
             chunk = s.recv(BYTES_TO_READ)
             result = b'' + chunk
-
             while len(chunk) > 0:
                 chunk = s.recv(BYTES_TO_READ)
                 result += chunk
-        print("\n\n\n")
-        print(result)
-        print("\n\n\n")
+            s.close()
 
-        header = result.split(b'\r\n', 1)[0]
+        # separate header from content
+        header, content = result.split(b'\r\n', 1)
+
+        # separate body from result
+        body = content.split(b"\r\n\r\n", 1)[1]
+
+        # replace the extra character from encoding and decoding
+        temp = body.decode()
+        body = temp.replace("b'", "")
+
+        # extract response code from header
         code = header.split(b' ')[1]
-        print(header, code)
         code = int(code)
-        return HTTPResponse(code, request)
+
+        return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
         if (command == "POST"):
@@ -147,20 +197,10 @@ class HTTPClient(object):
         else:
             return self.GET(url, args)
 
-    def parse(self, url):
-        parsed_elements = []
-        protocol, path1 = url.split("://", 1)
-        host, path2 = path1.split(":", 1)
-        port, fullPath = path2.split("/", 1)
-        fullPath = "/" + fullPath
-
-        parsed_elements.append(protocol)
-        parsed_elements.append(host)
-        parsed_elements.append(port)
-        parsed_elements.append(fullPath)
-
-        return parsed_elements
-
+    # https://docs.python.org/3/library/urllib.parse.html
+    def parsed2(self, url):
+        url_parsed = urllib.parse.urlparse(url)
+        return(url_parsed)
 
 if __name__ == "__main__":
     client = HTTPClient()
