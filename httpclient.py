@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright 2016 Abram Hindle, https://github.com/tywtyw2002, and https://github.com/treedust
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -91,7 +91,12 @@ class HTTPClient(object):
 
         # build request with parsed input
         # https://docs.python.org/3/library/string.html
-        request = "GET {} HTTP/1.1\r\nHOST: {}\r\n\r\n".format(url, parsed.hostname)
+        # if an argument exists have it at the end of the request
+        if args == None:
+            request = "GET {} HTTP/1.1\r\nHOST: {}\r\n\r\n".format(url, parsed.hostname)
+        else:
+            argument = urllib.parse.urlencode(args).encode('utf-8')
+            request = "GET {} HTTP/1.1\r\nHOST: {}\r\n\r\n{}".format(url, parsed.hostname, argument)
         # code excerpt from lab2 proxy_client
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if parsed.port == None:
@@ -115,12 +120,13 @@ class HTTPClient(object):
 
         # separate header and body content by the first b'\r\n\r\n'
         header, body = result.split(b'\r\n\r\n', 1)
+
         # convert to string and return
         body = str(body)
 
-
         # retrieve code from header and return
         code = int(header.split(b' ')[1])
+
 
         return HTTPResponse(code, body)
 
@@ -147,18 +153,18 @@ class HTTPClient(object):
     def POST(self, url, args=None):
         # https://docs.python.org/3/library/urllib.parse.html
         parsed = urllib.parse.urlparse(url)
+        if parsed.netloc == None or parsed.netloc == " ":
+            sys.stdout("Not proper URL")
+            sys.exit(1)
+
         # if no arguments are passed through, don't add arguments to the request
-        try:
-            # https://docs.python.org/3/library/urllib.parse.html
-            argument = urllib.parse.urlencode(args).encode('utf-8')
-            # https://uofa-cmput404.github.io/cmput404-slides/04-HTTP.html#/32
-            # create request function with Accept Encoding, Content Type and Content Length in header, if arguments is passed append to the end
-            request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{}".format(
-                url, parsed.hostname, parsed.port, len(argument) + 2, argument).encode("utf-8")
-        except TypeError:
-            # create request function with Accept Encoding, Content Type and Content Length in header, without arguments
+        if args == None:
             request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n".format(
                 url, parsed.hostname, parsed.port, 0).encode("utf-8")
+        else:
+            argument = urllib.parse.urlencode(args).encode('utf-8')
+            request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{}".format(
+            url, parsed.hostname, parsed.port, len(argument) + 2, argument).encode("utf-8")
 
         # code excerpt from lab2 proxy_client
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -174,7 +180,6 @@ class HTTPClient(object):
 
         # separate header from content
         header, content = result.split(b'\r\n', 1)
-
         # separate body from result
         body = content.split(b"\r\n\r\n", 1)[1]
 
@@ -194,17 +199,14 @@ class HTTPClient(object):
         else:
             return self.GET(url, args)
 
-    def parsed2(self, url):
-        url_parsed = urllib.parse.urlparse(url)
-        return(url_parsed)
-
 if __name__ == "__main__":
     client = HTTPClient()
     command = "GET"
+
     if (len(sys.argv) <= 1):
         help()
         sys.exit(1)
     elif (len(sys.argv) == 3):
         print(client.command(sys.argv[2], sys.argv[1]))
     else:
-        print(client.command(sys.argv[1]))
+        print(client.command(sys.argv[1]).body)

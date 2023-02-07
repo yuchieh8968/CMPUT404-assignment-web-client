@@ -232,9 +232,7 @@ class TestHTTPClient(unittest.TestCase):
                             req.code == 302,
                             "Code: %s for %s" % (req.code, url))
             if (req.code == 200):
-                self.assertTrue(req.body.find("DOCTYPE") >= 0 or
-                                req.body.find("<body") >= 0,
-                                "%s Data: [%s] " % (url, req.body))
+                self.assertTrue(req.body.find("DOCTYPE") >= 0 or req.body.find("<body") >= 0, "%s Data: [%s] " % (url, req.body))
 
     def testPOST(self):
         '''Test HTTP POST with an echo server'''
