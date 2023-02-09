@@ -98,37 +98,42 @@ class HTTPClient(object):
             argument = urllib.parse.urlencode(args).encode('utf-8')
             request = "GET {} HTTP/1.1\r\nHOST: {}\r\n\r\n{}".format(url, parsed.hostname, argument)
         # code excerpt from lab2 proxy_client
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if parsed.port == None:
-                port = 80
-            else:
-                port = parsed.port
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                if parsed.port == None:
+                    port = 80
+                else:
+                    port = parsed.port
 
-            s.connect((parsed.hostname, port))
-            s.sendall(request.encode())
-            time.sleep(3)
+                s.connect((parsed.hostname, port))
+                s.sendall(request.encode())
+                time.sleep(3)
 
-            s.shutdown(socket.SHUT_WR)
-            chunk = s.recv(BYTES_TO_READ)
-
-            result = b'' + chunk
-
-            while len(chunk) > 0:
+                s.shutdown(socket.SHUT_WR)
                 chunk = s.recv(BYTES_TO_READ)
-                result += chunk
-            s.close()
 
-        # separate header and body content by the first b'\r\n\r\n'
-        header, body = result.split(b'\r\n\r\n', 1)
+                result = b'' + chunk
 
-        # convert to string and return
-        body = str(body)
+                while len(chunk) > 0:
+                    chunk = s.recv(BYTES_TO_READ)
+                    result += chunk
+                s.close()
 
-        # retrieve code from header and return
-        code = int(header.split(b' ')[1])
+            # separate header and body content by the first b'\r\n\r\n'
+            header, body = result.split(b'\r\n\r\n', 1)
+
+            # convert to string and return
+            body = str(body)
+
+            # retrieve code from header and return
+            code = int(header.split(b' ')[1])
 
 
-        return HTTPResponse(code, body)
+            return HTTPResponse(code, body)
+
+        except socket.gaierror or TypeError:
+            print("Invalid Path")
+            sys.exit(1)
 
 
 
@@ -166,32 +171,37 @@ class HTTPClient(object):
             request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{}".format(
             url, parsed.hostname, parsed.port, len(argument) + 2, argument).encode("utf-8")
 
-        # code excerpt from lab2 proxy_client
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((parsed.hostname, parsed.port))
-            s.send(request)
-            s.shutdown(socket.SHUT_WR)
-            chunk = s.recv(BYTES_TO_READ)
-            result = b'' + chunk
-            while len(chunk) > 0:
+
+        try:
+            # code excerpt from lab2 proxy_client
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((parsed.hostname, parsed.port))
+                s.send(request)
+                s.shutdown(socket.SHUT_WR)
                 chunk = s.recv(BYTES_TO_READ)
-                result += chunk
-            s.close()
+                result = b'' + chunk
+                while len(chunk) > 0:
+                    chunk = s.recv(BYTES_TO_READ)
+                    result += chunk
+                s.close()
 
-        # separate header from content
-        header, content = result.split(b'\r\n', 1)
-        # separate body from result
-        body = content.split(b"\r\n\r\n", 1)[1]
+            # separate header from content
+            header, content = result.split(b'\r\n', 1)
+            # separate body from result
+            body = content.split(b"\r\n\r\n", 1)[1]
 
-        # replace the extra character from encoding and decoding
-        temp = body.decode()
-        body = temp.replace("b'", "")
+            # replace the extra character from encoding and decoding
+            temp = body.decode()
+            body = temp.replace("b'", "")
 
-        # extract response code from header
-        code = header.split(b' ')[1]
-        code = int(code)
+            # extract response code from header
+            code = header.split(b' ')[1]
+            code = int(code)
 
-        return HTTPResponse(code, body)
+            return HTTPResponse(code, body)
+        except socket.gaierror or TypeError:
+            print("Invalid Path")
+            sys.exit(1)
 
     def command(self, url, command="GET", args=None):
         if (command == "POST"):
