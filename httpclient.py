@@ -202,7 +202,7 @@ if __name__ == "__main__":
         sys.exit(1)
     elif len(sys.argv) == 3:
         # update print statement so it returns result to stdout for user to see
-        print(client.command(sys.argv[2], sys.argv[1]))
+        print(client.command(sys.argv[2], sys.argv[1]).body)
     else:
         # update print statement so it returns result to stdout for user to see
         print(client.command(sys.argv[1]).body)
