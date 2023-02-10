@@ -36,6 +36,7 @@ import socket
 import urllib.parse
 import time
 
+# initialize length of bytes to read
 BYTES_TO_READ = 4096
 
 
@@ -128,32 +129,12 @@ class HTTPClient(object):
             # retrieve code from header and return
             code = int(header.split(b' ')[1])
 
-
             return HTTPResponse(code, body)
 
+        # if socket receives these errors because of bad url return Invalid path and stop program
         except socket.gaierror or TypeError:
             print("Invalid Path")
             sys.exit(1)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     def POST(self, url, args=None):
         # https://docs.python.org/3/library/urllib.parse.html
@@ -163,14 +144,13 @@ class HTTPClient(object):
             sys.exit(1)
 
         # if no arguments are passed through, don't add arguments to the request
-        if args == None:
+        if args is None:
             request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n".format(
                 url, parsed.hostname, parsed.port, 0).encode("utf-8")
         else:
             argument = urllib.parse.urlencode(args).encode('utf-8')
             request = "POST {} HTTP/1.1\r\nHost: {}:{}\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{}".format(
-            url, parsed.hostname, parsed.port, len(argument) + 2, argument).encode("utf-8")
-
+                url, parsed.hostname, parsed.port, len(argument) + 2, argument).encode("utf-8")
 
         try:
             # code excerpt from lab2 proxy_client
@@ -197,8 +177,11 @@ class HTTPClient(object):
             # extract response code from header
             code = header.split(b' ')[1]
             code = int(code)
+            print(body)
 
             return HTTPResponse(code, body)
+
+        # if socket receives these errors because of bad url return Invalid path and stop program
         except socket.gaierror or TypeError:
             print("Invalid Path")
             sys.exit(1)
@@ -209,14 +192,15 @@ class HTTPClient(object):
         else:
             return self.GET(url, args)
 
+
 if __name__ == "__main__":
     client = HTTPClient()
     command = "GET"
 
-    if (len(sys.argv) <= 1):
+    if len(sys.argv) <= 1:
         help()
         sys.exit(1)
-    elif (len(sys.argv) == 3):
+    elif len(sys.argv) == 3:
         # update print statement so it returns result to stdout for user to see
         print(client.command(sys.argv[2], sys.argv[1]))
     else:
